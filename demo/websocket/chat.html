@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>WebSocket | Chat Demo</title>
+<style type="text/css">
+    * {
+        padding: 0;
+        margin: 0;
+    }
+    
+    #output p {
+        font: 12px Arial, Verdana, sans-serif;
+        padding: 3px 10px;
+    }
+    
+    #sidebar {
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 100%;
+        overflow: auto;
+        border-left: 1px solid #999;
+        position: absolute;
+        background: #ccc;
+        z-index: 1000;
+    }
+    
+    #sidebar #users {
+        padding: 10px;
+    }
+    
+    #sidebar #users li {
+        font: 13px Arial, Verdana, sans-serif;
+        padding: 3px 0;
+        list-style: none;
+    }
+    
+    #sidebar #users li.you { font-weight: bold; }
+    
+    #controls {
+        bottom: 0;
+        width: 100%;
+        height: 70px;
+        position: absolute;
+        border-top: 1px solid #ccc;
+        background: #f1f1f1;
+        z-index: 900;
+    }
+    
+    #controls input { font: 18px Arial, Verdana, sans-serif; }
+    
+    #controls #message {
+        width: 400px;
+        padding: 5px 10px;
+        margin: 10px;
+        border: 1px solid #ccc;
+    }
+    
+    #controls input[type=button] {
+        padding: 4px;
+    }
+</style>
+<script type="text/javascript">
+
+    var Client = {
+        url: "ws://localhost:12345",
+        socket: null,
+
+        createSocket: function() {
+            var ws = null;
+            if (window.MozWebSocket) {
+                window.WebSocket = window.MozWebSocket;
+            }
+            if (window.WebSocket) {
+            ws = new WebSocket(Client.url);
+            ws.onopen = function() {
+                    var btn = $('connect');
+                    btn.value = "Disconnect";
+                    btn.onclick = Client.disconnect;
+                    $('send').disabled = false;
+                    $('message').disabled = false;
+                    clear();
+                    log("Connected!");
+                    Client.getUsers();
+                }
+                ws.onmessage = function (evt) {
+                    var message = eval("(" + evt.data + ")");
+                    if (message) {
+                        switch (message.action) {
+                        case 'users':
+                            var list = $('users');
+                            list.innerHTML = "";
+                            for (var i in message.data) {
+                                var item = document.createElement("li");
+                                item.innerHTML = message.data[i];
+                                list.appendChild(item);
+                            }
+                            break;
+                        case 'message':
+                            log(message.user + ": " + message.data);
+                        }
+                    }
+                };
+                ws.onclose = function() {
+                    var btn = $('connect');
+                    btn.value = "Connect";
+                    btn.onclick = Client.connect;
+                    $('send').disabled = true;
+                    $('message').disabled = true;
+                    log("Connection is closed!");
+                }
+                ws.onerror = function(evt) {
+                    log("Error");
+                }
+            }
+            return ws;
+        },
+
+        connect: function() {
+            Client.socket = Client.createSocket();
+            log("Connecting...");
+            if (!Client.socket) {
+                log("WebSocket not supported");
+            }
+        },
+
+        send: function() {
+            if (Client.socket) {
+                var message = $('message').value;
+                if (message.trim() != "") {
+                    Client.socket.send(Client.createMessage('message', message.trim()));
+                    log("you: " + message.trim());
+                }
+                $('message').value = "";
+            }
+        },
+
+        disconnect: function() {
+            if (Client.socket) {
+                Client.socket.close();
+            }
+        },
+        
+        createMessage: function(action, data) {
+            data = data || "";
+            return '{"action":"' + action + '", "data":"' + data.split('"').join('\\"') + '"}';
+        },
+        
+        getUsers: function() {
+            Client.socket.send(Client.createMessage('users'));
+        }
+    }
+
+    function $(id) {
+        return document.getElementById(id);
+    }
+
+    function log(message) {
+        $('output').innerHTML += "<p>" + message + "</p>";
+    }
+
+    function clear() {
+        $('output').innerHTML = "";
+    }
+</script>
+</head>
+<body>
+    <div id="main">
+        <div id="sidebar">
+            <ul id="users">
+            </ul>
+        </div>
+        <div id="output"></div>
+    </div>
+    <div id="controls">
+        <form onsubmit="$('send').onclick(); return false;">
+            <input id="message" type="text" value="" disabled="disabled" />
+            <input id="send" type="button" value="Send" onclick="Client.send()" disabled="disabled" />
+            <input id="connect" type="button" value="Connect" onclick="Client.connect()" />
+        </form>
+    </div>
+</body>
+</html>
