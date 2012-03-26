@@ -8,6 +8,12 @@
         margin: 0;
     }
     
+    html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+    
     #output {
         overflow: auto;
     }
@@ -83,8 +89,8 @@
                     btn.onclick = Client.disconnect;
                     $('send').disabled = false;
                     $('message').disabled = false;
-                    clear();
-                    log("Connected!");
+                    Gui.clear();
+                    Gui.log("Connected!");
                     Client.getUsers();
                 }
                 ws.onmessage = function (evt) {
@@ -92,7 +98,7 @@
                     if (message) {
                         switch (message.action) {
                         case 'welcome':
-                            log("<pre>" + message.data + "</pre>");
+                            Gui.log("<pre>" + message.data + "</pre>");
                             break;
                         case 'users':
                             var list = $('users');
@@ -107,7 +113,7 @@
                             break;
                         case 'message':
                             var color = (message.user == 'server') ? "red" : "black";
-                            log("<strong>" + message.user + "</strong>: " + message.data, color);
+                            Gui.log("<strong>" + message.user + "</strong>: " + message.data, color);
                             break;
                         case 'ping':
                             // force timeout
@@ -122,10 +128,10 @@
                     btn.onclick = Client.connect;
                     $('send').disabled = true;
                     $('message').disabled = true;
-                    log("Connection is closed!");
+                    Gui.log("Connection is closed!");
                 }
                 ws.onerror = function(evt) {
-                    log("Error");
+                    Gui.log("Error");
                 }
             }
             return ws;
@@ -133,9 +139,9 @@
 
         connect: function() {
             Client.socket = Client.createSocket();
-            log("Connecting...");
+            Gui.log("Connecting...");
             if (!Client.socket) {
-                log("WebSocket not supported");
+                Gui.log("WebSocket not supported");
             }
         },
 
@@ -144,7 +150,7 @@
                 var message = $('message').value;
                 if (message.trim() != "") {
                     Client.socket.send(Client.createMessage('message', message.trim()));
-                    log("<strong>you</strong>: " + message.trim(), "blue");
+                    Gui.log("<strong>you</strong>: " + message.trim(), "blue");
                 }
                 $('message').value = "";
             }
@@ -165,21 +171,31 @@
             Client.socket.send(Client.createMessage('users'));
         }
     }
+    
+    var Gui = {
+        resize: function() {
+            var width = document.body.clientWidth - $('sidebar').clientWidth;
+            var height = document.body.clientHeight - $('controls').clientHeight;
+            $('output').style.width = width + "px";
+            $('output').style.height = height + "px";
+        },
+
+        log: function(message, color) {
+            color = color || "black";
+            $('output').innerHTML += '<p style="color:'+ color +'">' + message + '</p>';
+        },
+
+        clear: function() {
+            $('output').innerHTML = "";
+        }
+    }
 
     function $(id) {
         return document.getElementById(id);
     }
-
-    function log(message, color) {
-        color = color || "black";
-        $('output').innerHTML += '<p style="color:'+ color +'">' + message + '</p>';
-    }
-
-    function clear() {
-        $('output').innerHTML = "";
-    }
     
-    
+    window.onresize = Gui.resize;
+    window.onload = Gui.resize;
 </script>
 </head>
 <body>
