@@ -1,155 +1,207 @@
 <?php
-require_once('../bootstrap.php');
+require_once(dirname(dirname(__FILE__)) . '/bootstrap.php');
 
 use socket\WebSocket;
 
 set_time_limit(0);
 ob_implicit_flush();
 
-try {
-    $options = array('address' => 'localhost', 'port' => 12345);
-    $ws = new WebSocket($options);
-    $ws->setOption(SO_REUSEADDR, true);
-    $ws->setBlocking(false);
-    $ws->bind();
-    $ws->listen();
-
-    $clients = array();
+class Client {
     
-    _log("Connected");
-    _log("Listen at {$ws->getAddress()}:{$ws->getPort()}");
+    public $id;
+    public $socket;
+    public $last;
+    public $pinging;
+    
+    public function __construct($id, $socket) {
+        $this->id = $id;
+        $this->socket = $socket;
+        $this->last = time();
+        $this->pinging = false;
+    }
+}
 
-    while (true) {
-        try {
-            $sock = $ws->accept();
-        } catch (Exception $e) {
-            $sock = null;
+class Message {
+    
+    public $action;
+    public $data;
+    public $user;
+    
+    public function __construct($action, $data = '', $user = '') {
+        $this->action = $action;
+        $this->data = $data;
+        $this->user = $user;
+    }
+    
+    public function toJson() {
+        $message = array('action' => $this->action, 'data' => $this->data);
+        // prevent overhead
+        if (!empty($this->user)) {
+            $message['user'] = $this->user;
         }
-        if ($sock) {
-            if ($ws->handshake($sock)) {
-                $client = client($sock);
-                $clients[$client['id']] = $client;
-                _log("Accepted new client: ". $client['id']);
-                // updating users list
-                foreach ($clients as $_id => $_cli) {
-                    if ($_id != $client['id']) {
-                        send($_cli, message(users($client['id']), 'users'));
-                    }
+        return json_encode($message);
+    }
+    
+}
+
+class Server {
+    
+    public $socket;
+    public $clients = array();
+    public $welcomeText = '
+==========================================
+           Welcome to
+       WebSocket Chat Demo
+       
+ <a href="http://github.com/rogeriolino/phpsocket" target="_blank">http://github.com/rogeriolino/phpsocket</a>
+==========================================';
+    
+    public function __construct($options) {
+        $this->socket = new WebSocket($options);
+        $this->socket->setOption(SO_REUSEADDR, true);
+        $this->socket->setBlocking(false);
+    }
+    
+    public function run() {
+        $this->socket->bind();
+        $this->socket->listen();
+        $this->log("Connected");
+        $this->log("Listen at {$this->socket->getAddress()}:{$this->socket->getPort()}");
+        
+        while (true) {
+            try {
+                $sock = $this->socket->accept();
+            } catch (Exception $e) {
+                $sock = null;
+            }
+            if ($sock) {
+                if ($this->socket->handshake($sock)) {
+                    $client = $this->createClient($sock);
+                    $this->appendClient($client);
                 }
             }
-        }
-        foreach ($clients as $id => $client) {
-            $now = time();
-            $message = recv($client);
-            if ($message) {
-                if (isset($message->data)) {
-                    switch ($message->action) {
-                    case 'message':
-                        // message repassing
-                        foreach ($clients as $_id => $_cli) {
-                            if ($_id != $id) {
-                                send($_cli, message($message->data, 'message', $_id));
-                            }
+            foreach ($this->clients as $client) {
+                $now = time();
+                $message = $this->receiveFrom($client);
+                if ($message) {
+                    if (isset($message->data)) {
+                        switch ($message->action) {
+                        case 'message':
+                            // message repassing
+                            $this->sendAll(new Message('message', $message->data, $client->id), $client);
+                            break;
+                        case 'users':
+                            $this->sendTo($client, new Message($message->action, $this->getUsersList($client)));
+                            break;
                         }
-                        break;
-                    case 'users':
-                        send($client, message(users($id), $message->action));
-                        break;
+                    }
+                    $client->last = $now;
+                    $client->pinging = false;
+                }
+                // check inactivity (1 min)
+                $elapsed = $now - $client->last;
+                if ($elapsed > 60) {
+                    // send ping message
+                    if ($elapsed < 80) {
+                        if (!$client->pinging) {
+                            $this->sendTo($client, new Message('ping'));
+                            $client->pinging = true;
+                        }
+                    } else {
+                        $this->removeClient($client, 'disconnected by timeout');
                     }
                 }
-                $clients[$id]['last'] = $now;
-                $clients[$id]['ping'] = false;
             }
-            // check inactivity (1 min)
-            $elapsed = $now - $client['last'];
-            if ($elapsed > 60) {
-                // send ping message
-                if ($elapsed < 80) {
-                    if (!$client['ping']) {
-                        send($client, message('ping'));
-                        $clients[$id]['ping'] = true;
-                    }
-                } else {
-                    send($client, message('disconnected by timeout'));
-                    disconnect($id, "timeout");
+
+        }
+    }
+    
+    public function createClient($socket) {
+        $ids = array_keys($this->clients);
+        $socket->setBlocking(false);
+        // dummy unique id generation
+        do {
+            $id = "user-" . rand(0, 99999);
+        } while (in_array($id, $ids));
+        return new Client($id, $socket);
+    }
+    
+    public function appendClient(Client $client) {
+        $this->clients[$client->id] = $client;
+        $this->log("Accepted new client: ". $client->id);
+        // send welcome
+        $this->sendTo($client, new Message('welcome', $this->welcomeText));
+        // server message
+        $this->sendAll(new Message('message', "user {$client->id} joined to chat", 'server'), $client);
+        // updating users list
+        $this->sendAll(function($server, $cli) { return new Message('users', $server->getUsersList($cli)); });
+    }
+    
+    public function sendTo(Client $client, Message $message) {
+        $encoded = $this->socket->encode($message->toJson());
+        @$client->socket->write($encoded);
+        $this->log("Sent: ". $message->toJson());
+    }
+    
+    public function sendAll($message, Client $skip = null) {
+        foreach ($this->clients as $cli) {
+            if ($skip == null || $cli->id != $skip->id) {
+                if (is_callable($message)) {
+                    $message = $message($this, $cli);
+                }
+                if ($message instanceof Message) {
+                    $this->sendTo($cli, $message);
                 }
             }
         }
-
     }
-} catch (Exception $e) {
-    _log("Unable to connect: " . $e->getMessage());
-}
-
-function _log($msg) {
-    $date = date('Y-m-d H:i:s');
-    echo "[$date] $msg\n";
-}
-
-function recv($client) {
-    global $ws;
-    $data = $client['sock']->recv();
-    if (!empty($data)) {
-        $data = $ws->decode($data);
-        _log("Received: " . $data);
-        return json_decode($data);
-    }
-    return null;
-}
-
-function users($skip) {
-    global $clients;
-    $users = array('you');
-    foreach ($clients as $_id => $_cli) {
-        if ($_id != $skip) {
-            $users[] = $_id;
+    
+    function receiveFrom(Client $client) {
+        $data = $client->socket->recv();
+        if (!empty($data)) {
+            $data = $this->socket->decode($data);
+            $this->log("Received: " . $data);
+            return json_decode($data);
         }
+        return null;
     }
-    return $users;
-}
-
-function message($data, $action = 'message', $user = null) {
-    $message = array('action' => $action, 'data' => $data);
-    // prevent overhead
-    if ($user !== null) {
-        $message['user'] = $user;
-    }
-    return $message;
-}
-
-function send($client, $message) {
-    global $ws;
-    $message = json_encode($message);
-    @$client['sock']->write($ws->encode($message));
-    _log("Sent: ". $message);
-}
-
-function client($sock) {
-    global $clients;
-    $ids = array_keys($clients);
-    $sock->setBlocking(false);
-    do {
-        $id = "user-" . rand(0, 99999);
-    } while (in_array($id, $ids));
-    return array(
-        'id' => $id,
-        'sock' => $sock,
-        'last' => time(),
-        'ping' => false
-    );
-}
-
-function disconnect($id, $msg = "") {
-    global $clients;
-    if (isset($clients[$id])) {
-        $clients[$id]['sock']->close();
-        unset($clients[$id]);
-        $out = "Client disconected: $id";
+    
+    function removeClient(Client $client, $msg = "") {
+        // server message
+        $this->sendAll(new Message('message', "user {$client->id} disconnected", 'server'));
+        // close connection
+        $client->socket->close();
+        unset($this->clients[$client->id]);
+        $out = "Client disconected: {$client->id}";
         if (!empty($msg)) {
             $out .= " ($msg)";
         }
-        _log("$out");
-    } else {
-        _log("trying disconect unknow client");
+        $this->log("$out");
+        // updating users list
+        $this->sendAll(function($server, $cli) { return new Message('users', $server->getUsersList($cli)); });
     }
+    
+    public function getUsersList(Client $skip = null) {
+        $users = array('you');
+        foreach ($this->clients as $cli) {
+            if ($skip == null || $cli->id != $skip->id) {
+                $users[] = $cli->id;
+            }
+        }
+        return $users;
+    }
+
+    public function log($msg) {
+        $date = date('Y-m-d H:i:s');
+        echo "[$date] $msg\n";
+    }
+
+}
+
+$options = array('address' => 'localhost', 'port' => 12345);
+$server = new Server($options);
+try {
+    $server->run();
+} catch (Exception $e) {
+    $server->log("Unable to connect: " . $e->getMessage());
 }

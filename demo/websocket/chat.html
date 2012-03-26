@@ -8,6 +8,10 @@
         margin: 0;
     }
     
+    #output {
+        overflow: auto;
+    }
+    
     #output p {
         font: 12px Arial, Verdana, sans-serif;
         padding: 3px 10px;
@@ -87,17 +91,28 @@
                     var message = eval("(" + evt.data + ")");
                     if (message) {
                         switch (message.action) {
+                        case 'welcome':
+                            log("<pre>" + message.data + "</pre>");
+                            break;
                         case 'users':
                             var list = $('users');
                             list.innerHTML = "";
                             for (var i in message.data) {
+                                var user = message.data[i];
                                 var item = document.createElement("li");
-                                item.innerHTML = message.data[i];
+                                item.className = user;
+                                item.innerHTML = user;
                                 list.appendChild(item);
                             }
                             break;
                         case 'message':
-                            log(message.user + ": " + message.data);
+                            var color = (message.user == 'server') ? "red" : "black";
+                            log("<strong>" + message.user + "</strong>: " + message.data, color);
+                            break;
+                        case 'ping':
+                            // force timeout
+//                            Client.socket.send(Client.createMessage('pong'));
+                            break;
                         }
                     }
                 };
@@ -129,7 +144,7 @@
                 var message = $('message').value;
                 if (message.trim() != "") {
                     Client.socket.send(Client.createMessage('message', message.trim()));
-                    log("you: " + message.trim());
+                    log("<strong>you</strong>: " + message.trim(), "blue");
                 }
                 $('message').value = "";
             }
@@ -155,13 +170,16 @@
         return document.getElementById(id);
     }
 
-    function log(message) {
-        $('output').innerHTML += "<p>" + message + "</p>";
+    function log(message, color) {
+        color = color || "black";
+        $('output').innerHTML += '<p style="color:'+ color +'">' + message + '</p>';
     }
 
     function clear() {
         $('output').innerHTML = "";
     }
+    
+    
 </script>
 </head>
 <body>
