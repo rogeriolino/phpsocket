@@ -48,13 +48,12 @@ class Server {
     
     public $socket;
     public $clients = array();
-    public $welcomeText = '
-==========================================
-           Welcome to
-       WebSocket Chat Demo
+    public $welcomeText = '<font style="white-space: pre;font-family:monospace, sans;font-weight:bold;">==========================================
+              Welcome to
+          WebSocket Chat Demo
        
  <a href="http://github.com/rogeriolino/phpsocket" target="_blank">http://github.com/rogeriolino/phpsocket</a>
-==========================================';
+==========================================</font>';
     
     public function __construct($options) {
         $this->socket = new WebSocket($options);
@@ -137,9 +136,9 @@ class Server {
     }
     
     public function sendTo(Client $client, Message $message) {
-        $encoded = $this->socket->encode($message->toJson());
-        @$client->socket->write($encoded);
-        $this->log("Sent: ". $message->toJson());
+        $encoded = $message->toJson();
+        $this->socket->writeTo($client->socket, $encoded);
+        $this->log("Sent: ". $encoded);
     }
     
     public function sendAll($message, Client $skip = null) {
@@ -156,9 +155,8 @@ class Server {
     }
     
     function receiveFrom(Client $client) {
-        $data = $client->socket->recv();
+        $data = $this->socket->recvFrom($client->socket);
         if (!empty($data)) {
-            $data = $this->socket->decode($data);
             $this->log("Received: " . $data);
             return json_decode($data);
         }

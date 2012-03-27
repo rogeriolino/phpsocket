@@ -98,7 +98,7 @@
                     if (message) {
                         switch (message.action) {
                         case 'welcome':
-                            Gui.log("<pre>" + message.data + "</pre>");
+                            Gui.log(message.data, "green");
                             break;
                         case 'users':
                             var list = $('users');

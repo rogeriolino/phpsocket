@@ -74,6 +74,43 @@ class WebSocket extends CustomSocket {
         }
     }
     
+    public function recv() {
+        $data = parent::recv();
+        return $this->decode($data);
+    }
+    
+    public function recvFrom(Socket $socket) {
+        $data = $socket->recv();
+        if (!($socket instanceof WebSocket)) {
+            $data = $this->decode($data);
+        }
+        return $data;
+    }
+    
+    public function read() {
+        $data = parent::read();
+        return $this->decode($data);
+    }
+    
+    public function readFrom(Socket $socket) {
+        $data = $socket->read();
+        if (!($socket instanceof WebSocket)) {
+            $data = $this->decode($data);
+        }
+        return $data;
+    }
+    
+    public function write($data) {
+        return parent::write($this->encode($data));
+    }
+    
+    public function writeTo(Socket $socket, $data) {
+        if (!($socket instanceof WebSocket)) {
+            $data = $this->encode($data);
+        }
+        return $socket->write($data);
+    }
+    
     public function decode($data) {
         $len = $masks = $msg = $decoded = null;
         $len = ord($data[1]) & 127;
@@ -87,7 +124,7 @@ class WebSocket extends CustomSocket {
             $masks = substr($data, 2, 4);
             $msg = substr($data, 6);
         }
-        for ($index = 0; $index < strlen ($msg); $index++) {
+        for ($index = 0; $index < strlen($msg); $index++) {
             $decoded .= $msg[$index] ^ $masks[$index % 4];
         }
         return $decoded;
