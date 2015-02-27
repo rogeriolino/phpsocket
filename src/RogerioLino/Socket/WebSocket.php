@@ -1,16 +1,14 @@
 <?php
-namespace socket;
 
-use socket\Socket;
-use socket\CustomSocket;
+namespace RogerioLino\Socket;
 
 /**
  * WebSocket
  *
- * @author rogeriolino
- * @version 1.0.2
+ * @author Rogério Lino <rogeriolino.com>
  */
-class WebSocket extends CustomSocket {
+class WebSocket extends CustomSocket 
+{
     
     const HANDSHAKE_HYBI = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {key}\r\n";
     const HANDSHAKE_HIXIE = "HTTP/1.1 101 Web Socket Protocol Handshake\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nSec-WebSocket-Origin: {origin}\r\nSec-WebSocket-Location: ws://{url}\r\n";

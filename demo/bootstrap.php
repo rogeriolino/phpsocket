@@ -1,11 +1,8 @@
 <?php
-define('BASE', dirname(dirname(__FILE__)));
+
 
 $load = function($className) {
-    $filename = BASE . DIRECTORY_SEPARATOR . str_replace("\\", DIRECTORY_SEPARATOR, $className) . ".php";
-    if (file_exists($filename)) {
-        require_once($filename);
-    }
+    require_once dirname(__DIR__) . '/src/' . str_replace("\\", DIRECTORY_SEPARATOR, $className) . ".php";
 };
 
 spl_autoload_register($load);

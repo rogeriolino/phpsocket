@@ -1,15 +1,14 @@
 <?php
-namespace socket;
 
-use socket\AbstractSocket;
+namespace RogerioLino\Socket;
 
 /**
  * CustomSocket
  *
- * @author rogeriolino
- * @version 1.0.2
+ * @author Rogério Lino <rogeriolino.com>
  */
-class CustomSocket extends AbstractSocket {
+class CustomSocket extends AbstractSocket 
+{
 
     /**
      * Socket constructor

@@ -1,19 +1,17 @@
 <?php
-namespace socket;
 
-use socket\Socket;
-use socket\SocketException;
+namespace RogerioLino\Socket;
 
 /**
  * AbstractSocket
  *
- * @author rogeriolino
- * @version 1.0.2
+ * @author Rogério Lino <rogeriolino.com>
  */
-class AbstractSocket implements Socket {
+class AbstractSocket implements Socket 
+{
 
     protected $port = 3000;
-    protected $address = "localhost";
+    protected $address = "127.0.0.1";
     protected $blocking = true;
     protected $buffer = 2048;
     protected $backlog = 15;
@@ -52,9 +50,11 @@ class AbstractSocket implements Socket {
     /**
      * Define the socket port
      * @param int $port
+     * @return \RogerioLino\Socket\AbstractSocket
      */
     public function setPort($port) {
         $this->port = $port;
+        return $this;
     }
 
     /**
@@ -65,8 +65,14 @@ class AbstractSocket implements Socket {
         return $this->address;
     }
 
+    /**
+     * 
+     * @param type $address
+     * @return \RogerioLino\Socket\AbstractSocket
+     */
     public function setAddress($address) {
         $this->address = $address;
+        return $this;
     }
 
     /**
@@ -80,10 +86,12 @@ class AbstractSocket implements Socket {
     /**
      * Defines whether the socket is blocking or nonblocking mode
      * @param boolean $block
+     * @return \RogerioLino\Socket\AbstractSocket
      */
     public function setBlocking($blocking) {
         $this->blocking = ($blocking == true);
         $this->updateBlockingMode();
+        return $this;
     }
 
     /**
@@ -97,6 +105,7 @@ class AbstractSocket implements Socket {
     /**
      * Define the socket communication type
      * @param int $type
+     * @return \RogerioLino\Socket\AbstractSocket
      */
     public function setType($type) {
         if ($type == SOCK_STREAM || $type == SOCK_DGRAM || $type == SOCK_SEQPACKET || $type == SOCK_RAW || $type == SOCK_RDM) {
@@ -104,6 +113,7 @@ class AbstractSocket implements Socket {
         } else {
             throw new SocketException("Invalid socket communication type");
         }
+        return $this;
     }
 
     /**
@@ -117,6 +127,7 @@ class AbstractSocket implements Socket {
     /**
      * Define the socket protocol family
      * @param int $family
+     * @return \RogerioLino\Socket\AbstractSocket
      */
     public function setFamily($family) {
         if ($family == AF_INET || $family == AF_INET6 || $family == AF_UNIX) {
@@ -124,6 +135,7 @@ class AbstractSocket implements Socket {
         } else {
             throw new SocketException("Invalid socket protocol family");
         }
+        return $this;
     }
 
     /**
@@ -137,6 +149,7 @@ class AbstractSocket implements Socket {
     /**
      * Define the socket protocol, must be compatible whit the protocol family
      * @param int $protocol
+     * @return \RogerioLino\Socket\AbstractSocket
      */
     public function setProtocol($protocol) {
         if ($protocol == SOL_TCP || $protocol == SOL_UDP || $protocol == SOL_SOCKET) {
@@ -144,6 +157,7 @@ class AbstractSocket implements Socket {
         } else {
             throw new SocketException("Invalid socket protocol");
         }
+        return $this;
     }
 
     /**

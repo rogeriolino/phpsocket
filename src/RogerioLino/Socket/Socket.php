@@ -1,13 +1,14 @@
 <?php
-namespace socket;
+
+namespace RogerioLino\Socket;
   
 /** 
  * Socket 
  * 
- * @author rogeriolino
- * @version 1.0.2
+ * @author Rogério Lino <rogeriolino.com>
  */  
-interface Socket {  
+interface Socket 
+{
   
   
     /**

@@ -1,7 +1,7 @@
 <?php
 require_once(dirname(dirname(__FILE__)) . '/bootstrap.php');
 
-use socket\WebSocket;
+use RogerioLino\Socket as Socket;
 
 set_time_limit(0);
 ob_implicit_flush();
@@ -56,7 +56,7 @@ class Server {
 ==========================================</font>';
     
     public function __construct($options) {
-        $this->socket = new WebSocket($options);
+        $this->socket = new Socket\WebSocket($options);
         $this->socket->setOption(SO_REUSEADDR, true);
         $this->socket->setBlocking(false);
     }
@@ -195,7 +195,7 @@ class Server {
 
 }
 
-$options = array('address' => 'localhost', 'port' => 12345);
+$options = array('address' => '0.0.0.0', 'port' => 8000);
 $server = new Server($options);
 try {
     $server->run();
