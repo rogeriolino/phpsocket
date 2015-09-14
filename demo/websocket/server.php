@@ -1,19 +1,21 @@
 <?php
-require_once(dirname(dirname(__FILE__)) . '/bootstrap.php');
+
+require_once dirname(dirname(__FILE__)).'/bootstrap.php';
 
 use RogerioLino\Socket as Socket;
 
 set_time_limit(0);
 ob_implicit_flush();
 
-class Client {
-    
+class Client
+{
     public $id;
     public $socket;
     public $last;
     public $pinging;
-    
-    public function __construct($id, $socket) {
+
+    public function __construct($id, $socket)
+    {
         $this->id = $id;
         $this->socket = $socket;
         $this->last = time();
@@ -21,52 +23,56 @@ class Client {
     }
 }
 
-class Message {
-    
+class Message
+{
     public $action;
     public $data;
     public $user;
-    
-    public function __construct($action, $data = '', $user = '') {
+
+    public function __construct($action, $data = '', $user = '')
+    {
         $this->action = $action;
         $this->data = $data;
         $this->user = $user;
     }
-    
-    public function toJson() {
-        $message = array('action' => $this->action, 'data' => $this->data);
+
+    public function toJson()
+    {
+        $message = ['action' => $this->action, 'data' => $this->data];
         // prevent overhead
         if (!empty($this->user)) {
             $message['user'] = $this->user;
         }
+
         return json_encode($message);
     }
-    
 }
 
-class Server {
-    
+class Server
+{
     public $socket;
-    public $clients = array();
+    public $clients = [];
     public $welcomeText = '<font style="white-space: pre;font-family:monospace, sans;font-weight:bold;">==========================================
               Welcome to
           WebSocket Chat Demo
        
  <a href="http://github.com/rogeriolino/phpsocket" target="_blank">http://github.com/rogeriolino/phpsocket</a>
 ==========================================</font>';
-    
-    public function __construct($options) {
+
+    public function __construct($options)
+    {
         $this->socket = new Socket\WebSocket($options);
         $this->socket->setOption(SO_REUSEADDR, true);
         $this->socket->setBlocking(false);
     }
-    
-    public function run() {
+
+    public function run()
+    {
         $this->socket->bind();
         $this->socket->listen();
-        $this->log("Connected");
+        $this->log('Connected');
         $this->log("Listen at {$this->socket->getAddress()}:{$this->socket->getPort()}");
-        
+
         while (true) {
             try {
                 $sock = $this->socket->accept();
@@ -113,35 +119,40 @@ class Server {
             }
         }
     }
-    
-    public function createClient($socket) {
+
+    public function createClient($socket)
+    {
         $ids = array_keys($this->clients);
         $socket->setBlocking(false);
         // dummy unique id generation
         do {
-            $id = "user-" . rand(0, 99999);
+            $id = 'user-'.rand(0, 99999);
         } while (in_array($id, $ids));
+
         return new Client($id, $socket);
     }
-    
-    public function appendClient(Client $client) {
+
+    public function appendClient(Client $client)
+    {
         $this->clients[$client->id] = $client;
-        $this->log("Accepted new client: ". $client->id);
+        $this->log('Accepted new client: '.$client->id);
         // send welcome
         $this->sendTo($client, new Message('welcome', $this->welcomeText));
         // server message
         $this->sendAll(new Message('message', "user {$client->id} joined to chat", 'server'), $client);
         // updating users list
-        $this->sendAll(function($server, $cli) { return new Message('users', $server->getUsersList($cli)); });
+        $this->sendAll(function ($server, $cli) { return new Message('users', $server->getUsersList($cli)); });
     }
-    
-    public function sendTo(Client $client, Message $message) {
+
+    public function sendTo(Client $client, Message $message)
+    {
         $encoded = $message->toJson();
         $this->socket->writeTo($client->socket, $encoded);
-        $this->log("Sent: ". $encoded);
+        $this->log('Sent: '.$encoded);
     }
-    
-    public function sendAll($message, Client $skip = null) {
+
+    public function sendAll($message, Client $skip = null)
+    {
         foreach ($this->clients as $cli) {
             if ($skip == null || $cli->id != $skip->id) {
                 if (is_callable($message)) {
@@ -153,17 +164,21 @@ class Server {
             }
         }
     }
-    
-    function receiveFrom(Client $client) {
+
+    public function receiveFrom(Client $client)
+    {
         $data = $this->socket->recvFrom($client->socket);
         if (!empty($data)) {
-            $this->log("Received: " . $data);
+            $this->log('Received: '.$data);
+
             return json_decode($data);
         }
-        return null;
+
+        return;
     }
-    
-    function removeClient(Client $client, $msg = "") {
+
+    public function removeClient(Client $client, $msg = '')
+    {
         // server message
         $this->sendAll(new Message('message', "user {$client->id} disconnected", 'server'));
         // close connection
@@ -175,30 +190,32 @@ class Server {
         }
         $this->log("$out");
         // updating users list
-        $this->sendAll(function($server, $cli) { return new Message('users', $server->getUsersList($cli)); });
+        $this->sendAll(function ($server, $cli) { return new Message('users', $server->getUsersList($cli)); });
     }
-    
-    public function getUsersList(Client $skip = null) {
-        $users = array('you');
+
+    public function getUsersList(Client $skip = null)
+    {
+        $users = ['you'];
         foreach ($this->clients as $cli) {
             if ($skip == null || $cli->id != $skip->id) {
                 $users[] = $cli->id;
             }
         }
+
         return $users;
     }
 
-    public function log($msg) {
+    public function log($msg)
+    {
         $date = date('Y-m-d H:i:s');
         echo "[$date] $msg\n";
     }
-
 }
 
-$options = array('address' => '0.0.0.0', 'port' => 8000);
+$options = ['address' => '0.0.0.0', 'port' => 8000];
 $server = new Server($options);
 try {
     $server->run();
 } catch (Exception $e) {
-    $server->log("Unable to connect: " . $e->getMessage());
+    $server->log('Unable to connect: '.$e->getMessage());
 }

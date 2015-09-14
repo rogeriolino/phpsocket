@@ -3,18 +3,19 @@
 namespace RogerioLino\Socket;
 
 /**
- * CustomSocket
+ * CustomSocket.
  *
  * @author Rogério Lino <rogeriolino.com>
  */
-class CustomSocket extends AbstractSocket 
+class CustomSocket extends AbstractSocket
 {
-
     /**
-     * Socket constructor
+     * Socket constructor.
+     *
      * @param mixed $prop
      */
-    public function __construct($prop = null) {
+    public function __construct($prop = null)
+    {
         if (is_resource($prop)) {
             $this->resource = $prop;
         } else {
@@ -28,15 +29,16 @@ class CustomSocket extends AbstractSocket
             $this->resource = socket_create($this->family, $this->type, $this->protocol);
         }
     }
-    
+
     /**
-     * Accepts a connection. Wrapper to return a CustomSocket instance
+     * Accepts a connection. Wrapper to return a CustomSocket instance.
+     *
      * @throws SocketException
+     *
      * @return Socket
      */
-    public function accept() {
-        return new CustomSocket(parent::accept());
+    public function accept()
+    {
+        return new self(parent::accept());
     }
-
 }
-
